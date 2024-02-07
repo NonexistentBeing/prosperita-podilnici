@@ -1,3 +1,6 @@
+#-----------------------
+# Imports and dependencies
+#-----------------------
 from sys import argv
 import logging
 from docx import Document
@@ -5,16 +8,22 @@ from docx.table import _Cell as Cell_T
 from docx.document import Document as Document_T
 from pathlib import Path
 from docx2pdf import convert
-import win32api
 from pywintypes import com_error
 import pyzipper
 
-DEBUG = False
+#-----------------------
+# Global variables
+#-----------------------
 OUT_PATH = Path("./out")
+LOG_LEVEL = logging.INFO
 
+#-----------------------
+# Conversion step
+#-----------------------
 def convert_encrypt(files: dict[str, Path]):
     global OUT_PATH
     for birth_num, doc_path in files.items():
+        logging.debug(f'Birth num: {birth_num}, Path: "{doc_path}"')
         try:
             pdf_path = OUT_PATH / f"{doc_path.stem}.pdf"
             zip_path = OUT_PATH / f"{doc_path.stem}.zip"
@@ -28,15 +37,16 @@ def convert_encrypt(files: dict[str, Path]):
                 z_out.setpassword(bytes(birth_num, 'UTF-8'))
                 z_out.write(pdf_path, pdf_path.name)
 
-            logging.debug(f'Created ZIP "{pdf_path}", password: {birth_num}')
+            logging.info(f'Created ZIP "{pdf_path}", password: {birth_num}')
             pdf_path.unlink()
-        except com_error as err:
-            logging.error(f'Docx2PDF error: "{win32api.FormatMessage(err.args[0])}"')
-        except pyzipper.BadZipFile as err:
-            logging.error(f'Zipping error')
+        except com_error:
+            logging.error(f'Conversion error: "{doc_path}" failed converting')
+        except pyzipper.BadZipFile:
+            logging.error(f'Zipping error: "{doc_path}" failed to create zip')
 
-
-
+#-----------------------
+# Getting docs and data
+#-----------------------
 def get_birth_number(doc_path: Path):
     doc = Document(str(doc_path))
     if not isinstance(doc, Document_T):
@@ -59,20 +69,26 @@ def get_docx_files(dir_name: Path):
     return list(dir_name.glob('**/*.docx'))
 
 #-----------------------
-# MAIN FUNCTION AND INIT 
+# Setup functions
 #-----------------------
 def init_main():
+    global LOG_LEVEL
     msg_format = "[%(levelname)s]: %(message)s"
-    logging.basicConfig(level=logging.DEBUG, filename="log.txt", encoding="UTF-8", format=msg_format)
+    logging.basicConfig(LOG_LEVEL, filename="log.txt", encoding="UTF-8", format=msg_format)
     logging.getLogger().name = "Podilnici"
     if not (OUT_PATH.exists() and OUT_PATH.is_dir()):
         OUT_PATH.mkdir(parents=True)
-    if DEBUG:
+    if LOG_LEVEL == logging.DEBUG:
+        logging.debug('Adding ".local" to command line arguments')
         argv.append("./.local")
     if len(argv) == 1:
         logging.error("Not enough arguments, shutting down. Hint: Try dragging a file")
         exit(1)
 
+
+#-----------------------
+# Main function
+#-----------------------
 def main():
     init_main()
 
