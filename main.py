@@ -9,7 +9,7 @@ import win32api
 from pywintypes import com_error
 import pyzipper
 
-DEBUG = True
+DEBUG = False
 OUT_PATH = Path("./out")
 
 def convert_encrypt(files: dict[str, Path]):
