@@ -10,39 +10,81 @@ from pathlib import Path
 from docx2pdf import convert
 from pywintypes import com_error
 import pyzipper
-
+from pypdf import PdfWriter, PdfReader
+from pypdf.errors import PyPdfError
+import enum
+#-----------------------
+# Enums 
+#-----------------------
+class ConversionType(enum):
+    ZIP = 0
+    PDF = 1
 #-----------------------
 # Global variables
 #-----------------------
 OUT_PATH = Path("./out")
 LOG_LEVEL = logging.INFO
+ENCRYPTION_ALGO = "AES-256"
+CONVERSION_TYPE = ConversionType.PDF
 
 #-----------------------
 # Conversion step
 #-----------------------
+def encrypt_pdf(in_path: Path, out_path: Path, password: str):
+    global ENCRYPTION_ALGO
+    reader = PdfReader(in_path)
+    writer = PdfWriter()
+
+    for page in reader.pages:
+        writer.add_page(page)
+    
+    writer.encrypt(password, algorithm=ENCRYPTION_ALGO)
+    with open(str(out_path), "wb") as f:
+        writer.write(f)
+    logging.info(f'Created PDF "{out_path}", password: {password}')
+
+def encrypt_zip(pdf_path: Path, zip_path: Path, password: str):
+    with pyzipper.AESZipFile(
+        zip_path, 
+        'w',
+        compression=pyzipper.ZIP_DEFLATED,
+        encryption=pyzipper.WZ_AES) as z_out:
+        z_out.setpassword(bytes(password, 'UTF-8'))
+        z_out.write(pdf_path, pdf_path.name)
+    logging.info(f'Created ZIP "{zip_path}", password: {password}')
+
+
 def convert_encrypt(files: dict[str, Path]):
-    global OUT_PATH
+    global OUT_PATH, ZIP_CONVERSION
     for birth_num, doc_path in files.items():
         logging.debug(f'Birth num: {birth_num}, Path: "{doc_path}"')
+
         try:
             pdf_path = OUT_PATH / f"{doc_path.stem}.pdf"
+            temp_path = OUT_PATH / f"{doc_path.stem}.temp.zip"
             zip_path = OUT_PATH / f"{doc_path.stem}.zip"
 
-            convert(str(doc_path), str(pdf_path))
-            with pyzipper.AESZipFile(
-                    zip_path, 
-                    'w',
-                    compression=pyzipper.ZIP_LZMA,
-                    encryption=pyzipper.WZ_AES) as z_out:
-                z_out.setpassword(bytes(birth_num, 'UTF-8'))
-                z_out.write(pdf_path, pdf_path.name)
+            #-----------------
+            # Driver switch
+            #-----------------
+            if CONVERSION_TYPE == ConversionType.ZIP:
+                convert(str(doc_path), str(pdf_path))
+                encrypt_zip(pdf_path, zip_path, birth_num)
+                pdf_path.unlink()
+            elif CONVERSION_TYPE == ConversionType.PDF:
+                convert(str(doc_path), str(temp_path))
+                encrypt_pdf(temp_path, pdf_path, birth_num)
+                temp_path.unlink()
 
-            logging.info(f'Created ZIP "{pdf_path}", password: {birth_num}')
-            pdf_path.unlink()
+
         except com_error:
-            logging.error(f'Conversion error: "{doc_path}" failed converting')
+            logging.error(f'Conversion error: "{doc_path}" failed converting to PDF')
         except pyzipper.BadZipFile:
-            logging.error(f'Zipping error: "{doc_path}" failed to create zip')
+            logging.error(f'Zipping error: "{doc_path}" failed creating ZIP')
+        except PyPdfError:
+            logging.error(f'PDF error: "{pdf_path}" failed encrypting PDF')
+        except Exception:
+            logging.error("Unknown error")
 
 #-----------------------
 # Getting docs and data
