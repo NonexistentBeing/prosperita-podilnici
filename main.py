@@ -12,11 +12,11 @@ from pywintypes import com_error
 import pyzipper
 from pypdf import PdfWriter, PdfReader
 from pypdf.errors import PyPdfError
-import enum
+from enum import Enum
 #-----------------------
 # Enums 
 #-----------------------
-class ConversionType(enum):
+class ConversionType(Enum):
     ZIP = 0
     PDF = 1
 #-----------------------
@@ -61,7 +61,7 @@ def convert_encrypt(files: dict[str, Path]):
 
         try:
             pdf_path = OUT_PATH / f"{doc_path.stem}.pdf"
-            temp_path = OUT_PATH / f"{doc_path.stem}.temp.zip"
+            temp_path = OUT_PATH / f"{doc_path.stem}.temp.pdf"
             zip_path = OUT_PATH / f"{doc_path.stem}.zip"
 
             #-----------------
@@ -83,8 +83,8 @@ def convert_encrypt(files: dict[str, Path]):
             logging.error(f'Zipping error: "{doc_path}" failed creating ZIP')
         except PyPdfError:
             logging.error(f'PDF error: "{pdf_path}" failed encrypting PDF')
-        except Exception:
-            logging.error("Unknown error")
+        except Exception as err:
+            logging.error(f'Unknown error: "{doc_path}" {err!r}')
 
 #-----------------------
 # Getting docs and data
@@ -93,8 +93,10 @@ def get_birth_number(doc_path: Path):
     doc = Document(str(doc_path))
     if not isinstance(doc, Document_T):
         logging.error(f'Failed opening "{doc_path}"')
+        return None
     if len(doc.tables) <= 2:
         logging.error(f'No tables in "{doc_path}"')
+        return None
     cell = doc.tables[2].cell(1,2)
     if isinstance(cell, Cell_T):
         return cell.text.strip()
@@ -116,7 +118,7 @@ def get_docx_files(dir_name: Path):
 def init_main():
     global LOG_LEVEL
     msg_format = "[%(levelname)s]: %(message)s"
-    logging.basicConfig(LOG_LEVEL, filename="log.txt", encoding="UTF-8", format=msg_format)
+    logging.basicConfig(level=LOG_LEVEL, filename="log.txt", encoding="UTF-8", format=msg_format)
     logging.getLogger().name = "Podilnici"
     if not (OUT_PATH.exists() and OUT_PATH.is_dir()):
         OUT_PATH.mkdir(parents=True)
