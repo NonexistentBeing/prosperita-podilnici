@@ -13,12 +13,14 @@ import pyzipper
 from pypdf import PdfWriter, PdfReader
 from pypdf.errors import PyPdfError
 from enum import Enum
+
 #-----------------------
 # Enums 
 #-----------------------
 class ConversionType(Enum):
     ZIP = 0
     PDF = 1
+
 #-----------------------
 # Global variables
 #-----------------------
@@ -64,6 +66,10 @@ def convert_encrypt(files: dict[str, Path]):
             pdf_path = OUT_PATH / f"{doc_path.stem}.pdf"
             temp_path = OUT_PATH / f"{doc_path.stem}.temp.pdf"
             zip_path = OUT_PATH / f"{doc_path.stem}.zip"
+            def cleanup():
+                pdf_path.unlink(True)
+                temp_path.unlink(True)
+                zip_path.unlink(True)
 
             #-----------------
             # Driver switch
@@ -76,7 +82,7 @@ def convert_encrypt(files: dict[str, Path]):
                 convert(str(doc_path), str(temp_path))
                 encrypt_pdf(temp_path, pdf_path, birth_num)
                 temp_path.unlink()
-
+            cleanup = None
 
         except com_error:
             logging.error(f'Conversion error: "{doc_path}" failed converting to PDF')
@@ -86,6 +92,10 @@ def convert_encrypt(files: dict[str, Path]):
             logging.error(f'PDF error: "{pdf_path}" failed encrypting PDF')
         except Exception as err:
             logging.error(f'Unknown error: "{doc_path}" {err!r}')
+
+        finally:
+            if cleanup is not None:
+                cleanup()
 
 #-----------------------
 # Getting docs and data
@@ -125,12 +135,9 @@ def init_main():
     OUT_PATH.mkdir(parents=True, exist_ok=True)
     if not OUT_PATH.is_dir():
         logging.error(f'"{OUT_PATH}" is not a directory')
-    if LOG_LEVEL == logging.DEBUG:
+    if len(argv) == 1:
         logging.debug(f'Adding "{DEFAULT_IN}" to command line arguments')
         argv.append(str(DEFAULT_IN))
-    if len(argv) == 1:
-        logging.error("Not enough arguments, shutting down. Hint: Try dragging a file")
-        exit(1)
 
 
 #-----------------------
