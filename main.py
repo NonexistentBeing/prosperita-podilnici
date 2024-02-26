@@ -22,7 +22,8 @@ class ConversionType(Enum):
 #-----------------------
 # Global variables
 #-----------------------
-OUT_PATH = Path("./out")
+DEFAULT_IN = Path(".") / "dokumenty"
+OUT_PATH = Path(".") / "out"
 LOG_LEVEL = logging.INFO
 ENCRYPTION_ALGO = "AES-256"
 CONVERSION_TYPE = ConversionType.PDF
@@ -120,11 +121,13 @@ def init_main():
     msg_format = "[%(levelname)s]: %(message)s"
     logging.basicConfig(level=LOG_LEVEL, filename="log.txt", encoding="UTF-8", format=msg_format)
     logging.getLogger().name = "Podilnici"
-    if not (OUT_PATH.exists() and OUT_PATH.is_dir()):
-        OUT_PATH.mkdir(parents=True)
+
+    OUT_PATH.mkdir(parents=True, exist_ok=True)
+    if not OUT_PATH.is_dir():
+        logging.error(f'"{OUT_PATH}" is not a directory')
     if LOG_LEVEL == logging.DEBUG:
-        logging.debug('Adding ".local" to command line arguments')
-        argv.append("./.local")
+        logging.debug(f'Adding "{DEFAULT_IN}" to command line arguments')
+        argv.append(str(DEFAULT_IN))
     if len(argv) == 1:
         logging.error("Not enough arguments, shutting down. Hint: Try dragging a file")
         exit(1)
