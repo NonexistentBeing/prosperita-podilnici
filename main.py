@@ -13,6 +13,7 @@ import pyzipper
 from pypdf import PdfWriter, PdfReader
 from pypdf.errors import PyPdfError
 from enum import Enum
+from datetime import datetime
 
 #-----------------------
 # Enums 
@@ -120,7 +121,7 @@ def birth_number_gen(doc_paths: list[Path]):
         yield (doc_path, birth_num)
 
 def get_docx_files(dir_name: Path):
-    logging.info(f'Starting on folder "{dir_name}"')
+    logging.info(f'{datetime.now():%d-%m-%Y} - Starting on folder "{dir_name}"')
     return list(dir_name.glob('**/*.docx'))
 
 #-----------------------
